@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1084204440913",
+    "project_id": "whatsapp-video-compressor",
+    "storage_bucket": "whatsapp-video-compressor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1084204440913:android:069301b7258b6bfc608770",
+        "android_client_info": {
+          "package_name": "com.example.whatsapp_video_compressor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBV4MCYPsxRM0Tjxm9h7XRuy1x63i-ngQc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
