@@ -5,6 +5,7 @@ import '../../providers/compression_provider.dart';
 import '../widgets/native_video_player.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/app_drawer.dart';
+import '../../services/native_service.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/action_card.dart';
 import 'ai_support_screen.dart';
@@ -165,6 +166,49 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                           try {
+                             await NativeService().shareToWhatsApp(state.compressedVideoPath!, isBusiness: false);
+                           } catch (e) {
+                             if (!context.mounted) return;
+                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                           }
+                        },
+                        icon: const Icon(Icons.share),
+                        label: const Text("WhatsApp", style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366), // WhatsApp Green
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                           try {
+                             await NativeService().shareToWhatsApp(state.compressedVideoPath!, isBusiness: true);
+                           } catch (e) {
+                             if (!context.mounted) return;
+                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                           }
+                        },
+                        icon: const Icon(Icons.business_center),
+                        label: const Text("WA Business", style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF128C7E), // WhatsApp Dark Green
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(

@@ -25,4 +25,18 @@ class NativeService {
       return null;
     }
   }
+
+  /// Shares a video to WhatsApp or WhatsApp Business.
+  Future<bool> shareToWhatsApp(String videoPath, {bool isBusiness = false}) async {
+    try {
+      final bool? success = await _channel.invokeMethod('shareVideoToWhatsApp', {
+        'videoPath': videoPath,
+        'isBusiness': isBusiness,
+      });
+      return success ?? false;
+    } on PlatformException catch (e) {
+      debugPrint("Failed to share to WhatsApp: ${e.message}");
+      throw Exception(e.message ?? "Failed to share video");
+    }
+  }
 }
