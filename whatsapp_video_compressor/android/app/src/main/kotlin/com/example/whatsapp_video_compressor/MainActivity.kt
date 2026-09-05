@@ -48,20 +48,7 @@ class MainActivity: FlutterActivity() {
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, COMPRESSION_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
-                "compressVideo" -> {
-                    val inputPath = call.argument<String>("inputPath")
-                    if (inputPath != null) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val outPath = compressVideo(inputPath)
-                            withContext(Dispatchers.Main) {
-                                if (outPath != null) result.success(outPath)
-                                else result.error("ERROR", "Compression failed", null)
-                            }
-                        }
-                    } else {
-                        result.error("INVALID_ARGUMENT", "inputPath is null", null)
-                    }
-                }
+
                 "compressPhoto" -> {
                     val inputPath = call.argument<String>("inputPath")
                     if (inputPath != null) {
@@ -76,20 +63,7 @@ class MainActivity: FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "inputPath is null", null)
                     }
                 }
-                "splitVideo" -> {
-                    val inputPath = call.argument<String>("inputPath")
-                    val chunkDuration = call.argument<Int>("chunkDuration") ?: 30
-                    if (inputPath != null) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val chunks = splitVideo(inputPath, chunkDuration)
-                            withContext(Dispatchers.Main) {
-                                result.success(chunks)
-                            }
-                        }
-                    } else {
-                        result.error("INVALID_ARGUMENT", "inputPath is null", null)
-                    }
-                }
+
                 else -> result.notImplemented()
             }
         }
@@ -159,40 +133,6 @@ class MainActivity: FlutterActivity() {
         }
     }
 
-    private fun compressVideo(inputPath: String): String? {
-        val outputDir = context.cacheDir
-        val outputFile = File(outputDir, "compressed_video_${System.currentTimeMillis()}.mp4")
-        val outputPath = outputFile.absolutePath
-
-        val latch = CountDownLatch(1)
-        var isSuccess = false
-
-        val transformer = Transformer.Builder(context)
-            .setVideoMimeType(MimeTypes.VIDEO_H264)
-            .addListener(object : Transformer.Listener {
-                override fun onCompleted(composition: Composition, exportResult: ExportResult) {
-                    isSuccess = true
-                    latch.countDown()
-                }
-
-                override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
-                    exportException.printStackTrace()
-                    latch.countDown()
-                }
-            })
-            .build()
-
-        val mediaItem = MediaItem.fromUri(Uri.parse(inputPath))
-        val editedMediaItem = EditedMediaItem.Builder(mediaItem).build()
-        
-        context.mainExecutor.execute {
-            transformer.start(editedMediaItem, outputPath)
-        }
-
-        latch.await()
-        return if (isSuccess) outputPath else null
-    }
-
     private fun compressPhoto(inputPath: String): String? {
         try {
             val bitmap = android.graphics.BitmapFactory.decodeFile(inputPath) ?: return null
@@ -211,7 +151,5 @@ class MainActivity: FlutterActivity() {
         }
     }
 
-    private fun splitVideo(inputPath: String, chunkDuration: Int): List<String> {
-        return listOf(inputPath)
-    }
+
 }

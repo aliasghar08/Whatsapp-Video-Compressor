@@ -3,8 +3,17 @@ import 'glass_card.dart';
 
 class ActionCard extends StatelessWidget {
   final VoidCallback onTap;
+  final String title;
+  final String subtitle;
+  final IconData icon;
 
-  const ActionCard({super.key, required this.onTap});
+  const ActionCard({
+    super.key, 
+    required this.onTap,
+    this.title = 'Select Video',
+    this.subtitle = 'Compress without losing quality',
+    this.icon = Icons.video_library_rounded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -14,26 +23,26 @@ class ActionCard extends StatelessWidget {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-          child: const Column(
+          child: Column(
             children: [
               Icon(
-                Icons.video_library_rounded,
+                icon,
                 size: 64,
                 color: Colors.white,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
-                'Select Video',
-                style: TextStyle(
+                title,
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
-                'Compress without losing quality',
-                style: TextStyle(
+                subtitle,
+                style: const TextStyle(
                   fontSize: 14,
                   color: Colors.white70,
                 ),

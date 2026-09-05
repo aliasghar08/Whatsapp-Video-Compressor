@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_compress/video_compress.dart';
 import '../../services/compression_service.dart';
 import '../../services/native_service.dart';
 
@@ -12,20 +14,58 @@ final nativeServiceProvider = Provider<NativeService>((ref) {
 
 class CompressionState {
   final bool isCompressing;
+  final String? selectedVideoPath;
+  final int? originalVideoSize;
   final String? compressedVideoPath;
+  final int? compressedVideoSize;
+  final VideoQuality selectedQuality;
+  
+  final bool isSplitting;
+  final List<String> splitVideoPaths;
+  final int splitDuration;
+
+  final String? snackbarMessage;
+  final double progress;
 
   CompressionState({
     this.isCompressing = false,
+    this.selectedVideoPath,
+    this.originalVideoSize,
     this.compressedVideoPath,
+    this.compressedVideoSize,
+    this.selectedQuality = VideoQuality.DefaultQuality,
+    this.isSplitting = false,
+    this.splitVideoPaths = const [],
+    this.splitDuration = 30,
+    this.snackbarMessage,
+    this.progress = 0.0,
   });
 
   CompressionState copyWith({
     bool? isCompressing,
+    String? selectedVideoPath,
+    int? originalVideoSize,
     String? compressedVideoPath,
+    int? compressedVideoSize,
+    VideoQuality? selectedQuality,
+    bool? isSplitting,
+    List<String>? splitVideoPaths,
+    int? splitDuration,
+    String? snackbarMessage,
+    double? progress,
   }) {
     return CompressionState(
       isCompressing: isCompressing ?? this.isCompressing,
+      selectedVideoPath: selectedVideoPath ?? this.selectedVideoPath,
+      originalVideoSize: originalVideoSize ?? this.originalVideoSize,
       compressedVideoPath: compressedVideoPath ?? this.compressedVideoPath,
+      compressedVideoSize: compressedVideoSize ?? this.compressedVideoSize,
+      selectedQuality: selectedQuality ?? this.selectedQuality,
+      isSplitting: isSplitting ?? this.isSplitting,
+      splitVideoPaths: splitVideoPaths ?? this.splitVideoPaths,
+      splitDuration: splitDuration ?? this.splitDuration,
+      snackbarMessage: snackbarMessage, // Do not default to old message to allow clearing
+      progress: progress ?? this.progress,
     );
   }
 }
@@ -40,20 +80,142 @@ class CompressionNotifier extends Notifier<CompressionState> {
     return CompressionState();
   }
 
-  Future<void> pickAndCompressVideo() async {
+  void setQuality(VideoQuality quality) {
+    state = state.copyWith(selectedQuality: quality);
+  }
+  
+  void setSplitDuration(int duration) {
+    state = state.copyWith(splitDuration: duration);
+  }
+
+  void clearSnackbar() {
+    state = state.copyWith(snackbarMessage: null);
+  }
+
+  void clearAnalysis() {
+    state = state.copyWith(
+      selectedVideoPath: null,
+      originalVideoSize: null,
+      compressedVideoPath: null,
+      compressedVideoSize: null,
+    );
+  }
+
+  Future<void> pickAndAnalyzeVideo() async {
+    final nativeService = ref.read(nativeServiceProvider);
+    
+    final path = await nativeService.openVideoGallery();
+    if (path != null) {
+      int? fileSize;
+      try {
+        final info = await VideoCompress.getMediaInfo(path);
+        fileSize = info.filesize;
+      } catch (e) {
+        // Fallback to dart:io File size if plugin fails
+        try {
+          fileSize = File(path).lengthSync();
+        } catch (_) {}
+      }
+
+      state = state.copyWith(
+        selectedVideoPath: path,
+        originalVideoSize: fileSize,
+        compressedVideoPath: null,
+        compressedVideoSize: null,
+        splitVideoPaths: const [],
+      );
+    }
+  }
+
+  Future<void> startCompression() async {
+    final path = state.selectedVideoPath;
+    if (path == null) return;
+
+    final compressionService = ref.read(compressionServiceProvider);
+    
+    state = state.copyWith(
+      isCompressing: true, 
+      compressedVideoPath: null,
+      compressedVideoSize: null,
+      progress: 0.0,
+      snackbarMessage: "Compression started...",
+    );
+    
+    final subscription = VideoCompress.compressProgress$.subscribe((progress) {
+      state = state.copyWith(progress: progress);
+    });
+    
+    try {
+      final compressedPath = await compressionService.compressVideoForWhatsApp(
+        path,
+        quality: state.selectedQuality,
+      );
+      
+      if (compressedPath == null) {
+        state = state.copyWith(
+          isCompressing: false,
+          snackbarMessage: "Error: Compression failed or returned null.",
+        );
+      } else {
+        int? compressedSize;
+        try {
+          compressedSize = File(compressedPath).lengthSync();
+        } catch (_) {}
+
+        state = state.copyWith(
+          isCompressing: false,
+          compressedVideoPath: compressedPath,
+          compressedVideoSize: compressedSize,
+          snackbarMessage: "Compression successful!",
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isCompressing: false,
+        snackbarMessage: "Exception during compression: $e",
+      );
+    } finally {
+      subscription.unsubscribe();
+    }
+  }
+
+  Future<void> pickAndSplitVideo() async {
     final nativeService = ref.read(nativeServiceProvider);
     final compressionService = ref.read(compressionServiceProvider);
     
     final path = await nativeService.openVideoGallery();
     if (path != null) {
-      state = state.copyWith(isCompressing: true, compressedVideoPath: null);
-      
-      final compressedPath = await compressionService.compressVideoForWhatsApp(path);
-      
       state = state.copyWith(
-        isCompressing: false,
-        compressedVideoPath: compressedPath,
+        isSplitting: true, 
+        splitVideoPaths: const [],
+        compressedVideoPath: null,
+        snackbarMessage: "Splitting started...",
       );
+      
+      try {
+        final paths = await compressionService.splitVideoForStatus(
+          path,
+          chunkDurationInSeconds: state.splitDuration,
+        );
+        
+        if (paths.isEmpty) {
+          state = state.copyWith(
+            isSplitting: false,
+            snackbarMessage: "Error: Splitting failed or produced no chunks.",
+          );
+        } else {
+          state = state.copyWith(
+            isSplitting: false,
+            splitVideoPaths: paths,
+            snackbarMessage: "Splitting successful! Generated ${paths.length} chunks.",
+          );
+        }
+      } catch (e) {
+        state = state.copyWith(
+          isSplitting: false,
+          snackbarMessage: "Exception during splitting: $e",
+        );
+      }
     }
   }
 }
