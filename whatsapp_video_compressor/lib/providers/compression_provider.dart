@@ -99,6 +99,7 @@ class CompressionNotifier extends Notifier<CompressionState> {
       compressedVideoPath: null,
       compressedVideoSize: null,
     );
+    ref.read(compressionServiceProvider).clearTemporaryFiles();
   }
 
   Future<void> pickAndAnalyzeVideo() async {
@@ -191,6 +192,8 @@ class CompressionNotifier extends Notifier<CompressionState> {
         compressedVideoPath: null,
         snackbarMessage: "Splitting started...",
       );
+      
+      await compressionService.clearTemporaryFiles();
       
       try {
         final paths = await compressionService.splitVideoForStatus(

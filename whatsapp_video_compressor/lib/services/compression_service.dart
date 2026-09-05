@@ -71,5 +71,29 @@ class CompressionService {
       return [];
     }
   }
+
+  /// Clears temporary splitting and compression cache files.
+  Future<void> clearTemporaryFiles() async {
+    try {
+      // Clear VideoCompress cache
+      await VideoCompress.deleteAllCache();
+      
+      // Clear old split chunks
+      final dir = await getTemporaryDirectory();
+      final directory = Directory(dir.path);
+      if (directory.existsSync()) {
+        final files = directory.listSync().whereType<File>();
+        for (var file in files) {
+          if (file.path.contains('split_')) {
+            try {
+              file.deleteSync();
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Failed to clear temporary files: $e");
+    }
+  }
 }
 

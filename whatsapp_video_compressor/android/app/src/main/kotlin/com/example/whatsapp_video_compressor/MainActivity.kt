@@ -37,6 +37,11 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
+        // Clean up old temporary files
+        CoroutineScope(Dispatchers.IO).launch {
+            clearOldCacheFiles()
+        }
+        
         // Initialize Billing Manager
         val billingMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BILLING_CHANNEL)
         billingManager = BillingManager(context, this, billingMethodChannel)
@@ -178,5 +183,23 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    private fun clearOldCacheFiles() {
+        try {
+            val cacheDir = context.cacheDir
+            if (cacheDir != null && cacheDir.exists() && cacheDir.isDirectory) {
+                val oneHourAgo = System.currentTimeMillis() - (60 * 60 * 1000)
+                val files = cacheDir.listFiles()
+                files?.forEach { file ->
+                    if (file.isFile && (file.name.startsWith("temp_file_") || file.name.startsWith("compressed_photo_") || file.name.startsWith("split_"))) {
+                        if (file.lastModified() < oneHourAgo) {
+                            file.delete()
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
 }
