@@ -10,7 +10,7 @@
 
 *An elegant, high-performance Flutter application designed to solve the pixelated WhatsApp status problem. Compress in HD, split flawlessly, and share instantly.*
 
-[Features](#-key-features) • [How It Works](#-how-it-works) • [Tech Stack](#-tech-stack) • [Installation](#-installation)
+[Features](#-key-features) • [How It Works](#-how-it-works) • [Tech Stack](#-tech-stack) • [Project Structure](#-project-structure)
 
 </div>
 
@@ -47,37 +47,39 @@ This project was built with modern, scalable, and highly optimized technologies:
 
 ---
 
-## 💻 Installation & Getting Started
+## 📁 Project Structure
 
-### Prerequisites
-*   Flutter SDK (Version 3.0.0 or higher)
-*   Android Studio / Xcode for native compilation
+The codebase is built on a clean architectural pattern to ensure scalability and maintainability.
 
-### Quick Setup
+```text
+whatsapp_video_compressor/
+├── android/
+│   ├── app/src/main/kotlin/com/example/.../
+│   │   ├── MainActivity.kt        # Handles Kotlin MethodChannels & Cache Management
+│   │   └── BillingManager.kt      # In-App Purchases implementation
+│   └── app/src/main/res/xml/
+│       └── provider_paths.xml     # Security rules for WhatsApp file sharing
+├── lib/
+│   ├── main.dart                  # App entry point & Theme configuration
+│   ├── providers/                 
+│   │   └── compression_provider.dart # Riverpod states & business logic for video tasks
+│   ├── screens/                   
+│   │   ├── home_screen.dart       # Main UI routing and Analysis/Result views
+│   │   └── settings_screen.dart   # Configuration and premium features view
+│   ├── services/                  
+│   │   ├── compression_service.dart # Interfaces with FFmpeg and MediaCodec
+│   │   └── native_service.dart    # Flutter bridges to native Kotlin methods
+│   └── widgets/                   
+│       ├── glass_card.dart        # Reusable frosted-glass UI components
+│       └── action_card.dart       # UI cards for Compression & Splitting buttons
+└── pubspec.yaml                   # Flutter dependencies configuration
+```
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/aliasghar08/Whatsapp-Video-Compressor.git
-   ```
+---
 
-2. **Navigate to the project directory:**
-   ```bash
-   cd Whatsapp-Video-Compressor/whatsapp_video_compressor
-   ```
+## 📦 Building the Release APK
 
-3. **Get the dependencies:**
-   ```bash
-   flutter pub get
-   ```
-
-4. **Run the app:**
-   ```bash
-   flutter run
-   ```
-
-### 📦 Building the Release APK
-
-To generate a production-ready, heavily optimized APK:
+To generate a production-ready, heavily optimized APK, run:
 ```bash
 flutter build apk --release
 ```
