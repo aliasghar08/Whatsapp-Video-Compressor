@@ -3,6 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_compress/video_compress.dart';
 import '../../services/compression_service.dart';
 import '../../services/native_service.dart';
+import 'history_provider.dart';
+
+enum CustomVideoQuality {
+  highest1080p,
+  hd720p,
+  sd480p,
+}
 
 final compressionServiceProvider = Provider<CompressionService>((ref) {
   return CompressionService();
@@ -16,9 +23,10 @@ class CompressionState {
   final bool isCompressing;
   final String? selectedVideoPath;
   final int? originalVideoSize;
+  final double? originalVideoDuration; // in ms
   final String? compressedVideoPath;
   final int? compressedVideoSize;
-  final VideoQuality selectedQuality;
+  final CustomVideoQuality selectedQuality;
   
   final bool isSplitting;
   final List<String> splitVideoPaths;
@@ -31,9 +39,10 @@ class CompressionState {
     this.isCompressing = false,
     this.selectedVideoPath,
     this.originalVideoSize,
+    this.originalVideoDuration,
     this.compressedVideoPath,
     this.compressedVideoSize,
-    this.selectedQuality = VideoQuality.DefaultQuality,
+    this.selectedQuality = CustomVideoQuality.hd720p,
     this.isSplitting = false,
     this.splitVideoPaths = const [],
     this.splitDuration = 30,
@@ -45,9 +54,10 @@ class CompressionState {
     bool? isCompressing,
     String? selectedVideoPath,
     int? originalVideoSize,
+    double? originalVideoDuration,
     String? compressedVideoPath,
     int? compressedVideoSize,
-    VideoQuality? selectedQuality,
+    CustomVideoQuality? selectedQuality,
     bool? isSplitting,
     List<String>? splitVideoPaths,
     int? splitDuration,
@@ -58,6 +68,7 @@ class CompressionState {
       isCompressing: isCompressing ?? this.isCompressing,
       selectedVideoPath: selectedVideoPath ?? this.selectedVideoPath,
       originalVideoSize: originalVideoSize ?? this.originalVideoSize,
+      originalVideoDuration: originalVideoDuration ?? this.originalVideoDuration,
       compressedVideoPath: compressedVideoPath ?? this.compressedVideoPath,
       compressedVideoSize: compressedVideoSize ?? this.compressedVideoSize,
       selectedQuality: selectedQuality ?? this.selectedQuality,
@@ -80,7 +91,7 @@ class CompressionNotifier extends Notifier<CompressionState> {
     return CompressionState();
   }
 
-  void setQuality(VideoQuality quality) {
+  void setQuality(CustomVideoQuality quality) {
     state = state.copyWith(selectedQuality: quality);
   }
   
@@ -102,15 +113,26 @@ class CompressionNotifier extends Notifier<CompressionState> {
     ref.read(compressionServiceProvider).clearTemporaryFiles();
   }
 
+  void loadFromHistory(String path, int originalSize, int compressedSize) {
+    state = state.copyWith(
+      selectedVideoPath: path,
+      originalVideoSize: originalSize,
+      compressedVideoPath: path,
+      compressedVideoSize: compressedSize,
+    );
+  }
+
   Future<void> pickAndAnalyzeVideo() async {
     final nativeService = ref.read(nativeServiceProvider);
     
     final path = await nativeService.openVideoGallery();
     if (path != null) {
       int? fileSize;
+      double? durationMs;
       try {
         final info = await VideoCompress.getMediaInfo(path);
         fileSize = info.filesize;
+        durationMs = info.duration;
       } catch (e) {
         // Fallback to dart:io File size if plugin fails
         try {
@@ -121,6 +143,7 @@ class CompressionNotifier extends Notifier<CompressionState> {
       state = state.copyWith(
         selectedVideoPath: path,
         originalVideoSize: fileSize,
+        originalVideoDuration: durationMs,
         compressedVideoPath: null,
         compressedVideoSize: null,
         splitVideoPaths: const [],
@@ -142,14 +165,14 @@ class CompressionNotifier extends Notifier<CompressionState> {
       snackbarMessage: "Compression started...",
     );
     
-    final subscription = VideoCompress.compressProgress$.subscribe((progress) {
-      state = state.copyWith(progress: progress);
-    });
-    
     try {
       final compressedPath = await compressionService.compressVideoForWhatsApp(
         path,
         quality: state.selectedQuality,
+        videoDurationMs: state.originalVideoDuration,
+        onProgress: (progress) {
+          state = state.copyWith(progress: progress);
+        },
       );
       
       if (compressedPath == null) {
@@ -169,14 +192,20 @@ class CompressionNotifier extends Notifier<CompressionState> {
           compressedVideoSize: compressedSize,
           snackbarMessage: "Compression successful!",
         );
+        
+        // Save to history
+        ref.read(historyProvider.notifier).addHistoryItem(
+          originalSize: state.originalVideoSize ?? 0,
+          compressedSize: compressedSize ?? 0,
+          path: compressedPath,
+          quality: state.selectedQuality.name,
+        );
       }
     } catch (e) {
       state = state.copyWith(
         isCompressing: false,
         snackbarMessage: "Exception during compression: $e",
       );
-    } finally {
-      subscription.unsubscribe();
     }
   }
 

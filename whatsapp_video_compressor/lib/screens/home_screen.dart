@@ -9,7 +9,7 @@ import '../../services/native_service.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/action_card.dart';
 import 'ai_support_screen.dart';
-import 'package:video_compress/video_compress.dart';
+import 'history_screen.dart';
 import 'dart:math';
 
 class HomeScreen extends ConsumerWidget {
@@ -56,6 +56,15 @@ class HomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.workspace_premium, color: Colors.amber),
               onPressed: () => ref.read(premiumProvider.notifier).purchasePremium(),
             ),
+          IconButton(
+            icon: const Icon(Icons.history, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HistoryScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: Container(
@@ -80,7 +89,7 @@ class HomeScreen extends ConsumerWidget {
                         child: LoadingView(
                           message: compressionState.isSplitting 
                             ? "Splitting video..." 
-                            : "Compressing in HD... ${compressionState.progress.toStringAsFixed(1)}%"),
+                            : "Compressing... ${compressionState.progress.toStringAsFixed(1)}%"),
                       ),
                     )
                   : _buildMainContent(context, ref, compressionState),
@@ -256,10 +265,9 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 const Text("Select Compression Quality:", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
-                _buildQualityOption(ref, state, VideoQuality.HighestQuality, "Highest Quality", "~10% smaller", Icons.hd),
-                _buildQualityOption(ref, state, VideoQuality.DefaultQuality, "Default Quality", "~30% smaller", Icons.balance),
-                _buildQualityOption(ref, state, VideoQuality.MediumQuality, "Medium Quality", "~50% smaller", Icons.sd),
-                _buildQualityOption(ref, state, VideoQuality.LowQuality, "Low Quality", "~80% smaller", Icons.compress),
+                _buildQualityOption(ref, state, CustomVideoQuality.highest1080p, "1080p (Highest)", "Best for preserving maximum detail", Icons.hd),
+                _buildQualityOption(ref, state, CustomVideoQuality.hd720p, "720p (HD - Default)", "Perfect balance of size and quality", Icons.balance),
+                _buildQualityOption(ref, state, CustomVideoQuality.sd480p, "480p (SD)", "Maximum space saving", Icons.sd),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -282,7 +290,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQualityOption(WidgetRef ref, CompressionState state, VideoQuality quality, String title, String estimate, IconData icon) {
+  Widget _buildQualityOption(WidgetRef ref, CompressionState state, CustomVideoQuality quality, String title, String estimate, IconData icon) {
     final isSelected = state.selectedQuality == quality;
     return GestureDetector(
       onTap: () => ref.read(compressionProvider.notifier).setQuality(quality),

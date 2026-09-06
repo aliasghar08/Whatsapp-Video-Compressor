@@ -2,22 +2,77 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new/statistics.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import '../providers/compression_provider.dart';
 
 class CompressionService {
   static const MethodChannel _channel = MethodChannel('com.example.whatsapp_video_compressor/compression');
 
-  /// Compresses video using video_compress plugin.
-  Future<String?> compressVideoForWhatsApp(String inputPath, {VideoQuality quality = VideoQuality.DefaultQuality}) async {
+  /// Compresses video using FFmpeg for precise pixel-perfect resolutions.
+  Future<String?> compressVideoForWhatsApp(
+    String inputPath, {
+    CustomVideoQuality quality = CustomVideoQuality.hd720p,
+    void Function(double)? onProgress,
+    double? videoDurationMs,
+  }) async {
     try {
-      final MediaInfo? info = await VideoCompress.compressVideo(
-        inputPath,
-        quality: quality,
-        deleteOrigin: false,
-      );
-      return info?.path;
+      final dir = await getApplicationSupportDirectory(); // Save to persistent directory that works with FileProvider
+      final timestampStr = DateTime.now().millisecondsSinceEpoch.toString();
+      final outputPath = '${dir.path}/compressed_$timestampStr.mp4';
+      
+      String scaleFilter = "";
+      switch (quality) {
+        case CustomVideoQuality.highest1080p:
+          scaleFilter = "scale=-2:1080";
+          break;
+        case CustomVideoQuality.hd720p:
+          scaleFilter = "scale=-2:720";
+          break;
+        case CustomVideoQuality.sd480p:
+          scaleFilter = "scale=-2:480";
+          break;
+      }
+
+      // Enable progress statistics
+      if (onProgress != null && videoDurationMs != null && videoDurationMs > 0) {
+        FFmpegKitConfig.enableStatisticsCallback((Statistics statistics) {
+          final timeInMs = statistics.getTime();
+          if (timeInMs > 0) {
+            double progress = (timeInMs / videoDurationMs) * 100;
+            if (progress > 100) progress = 100;
+            onProgress(progress);
+          }
+        });
+      } else {
+        FFmpegKitConfig.enableStatisticsCallback(null);
+      }
+
+      // -vf "$scaleFilter" : Applies scale (width auto to keep aspect ratio, height fixed)
+      // -c:v libx264 -crf 28 : Standard good compression 
+      // -preset superfast : Quick encoding
+      // -c:a aac : Ensure audio compatibility
+      final command = '-y -i "$inputPath" -vf "$scaleFilter" -c:v libx264 -crf 28 -preset superfast -c:a aac "$outputPath"';
+      
+      final session = await FFmpegKit.execute(command);
+      final returnCode = await session.getReturnCode();
+      
+      // Cleanup callback
+      FFmpegKitConfig.enableStatisticsCallback(null);
+      
+      if (ReturnCode.isSuccess(returnCode)) {
+        return outputPath;
+      } else {
+        final logs = await session.getLogs();
+        debugPrint("FFmpeg compression failed:");
+        for (var log in logs) {
+          debugPrint(log.getMessage());
+        }
+        return null;
+      }
     } catch (e) {
       debugPrint("Compression failed: $e");
       return null;
